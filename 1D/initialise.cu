@@ -17,7 +17,7 @@ using namespace std;
 //Initialization Functions//
 ////////////////////////////
 
-__global__ void PreFFTInitPhi(float2 d_PhiC[X], int f) {
+__global__ void PreFFTInitPhi(float2 d_PhiC[X], int f, double temperature, double msq) {
 
 	const uint index = {blockIdx.x * blockDim.x + threadIdx.x};
 	const uint stride = {blockDim.x * gridDim.x};
@@ -35,7 +35,8 @@ __global__ void PreFFTInitPhi(float2 d_PhiC[X], int f) {
 		qsq = 2*M_PI * 2*M_PI * (kx/(X*dx)) * (kx/(X*dx));
 		
 		if (thermal_spectrum) {	
-			r = (1/sqrt(X*dx)) * ((curand(&state)%1000+0.5)/1000) / sqrt( exp( sqrt(qsq+1) ) - 1 ); // crude thermal spectrum
+			r = sqrt(1 / (X*dx*(exp(sqrt(qsq + msq) / temperature) - 1))); // exactly giving BE distribution
+			// When given msq=0, division by zero for kx=0, eventually failing FFT
 		} else {
 			r = (1/sqrt(X*dx)) * ((curand(&state)%1000+0.5)/1000) / sqrt(qsq+1); // arbitrary non-thermal spectrum
 		}
@@ -191,11 +192,26 @@ int main() {
 		cufftHandle plan;
 		cufftPlan1d( &plan, X, CUFFT_C2C, 1);
 		
-		for (short int f=0; f<F; f++) {
+		for (short int f=0; f<5; f++) {
 		
 			// Pre FFT initialization
 			
-			PreFFTInitPhi<<<grid, block>>>(d_PhiC, f);
+			PreFFTInitPhi<<<grid, block>>>(d_PhiC, f, 1, 1); // TODO: make T & msq as external parameters
+			PreFFTInitPhiDot<<<grid, block>>>(d_PhiDotC, f);
+			cudaDeviceSynchronize();
+			
+			cufftExecC2C( plan, (cufftComplex *) d_PhiC, (cufftComplex *) d_PhiC, CUFFT_INVERSE );
+			cufftExecC2C( plan, (cufftComplex *) d_PhiDotC, (cufftComplex *) d_PhiDotC, CUFFT_INVERSE );
+			
+			cpy<<<grid, block>>>(d_PhiC, d_PhiDotC, d_Phi, d_PhiDot, f);
+			cudaDeviceSynchronize();
+		}
+	
+		for (short int f=5; f<F; f++) {
+		
+			// Pre FFT initialization
+			
+			PreFFTInitPhi<<<grid, block>>>(d_PhiC, f, 1, 0); // msq=0 is causing problem
 			PreFFTInitPhiDot<<<grid, block>>>(d_PhiDotC, f);
 			cudaDeviceSynchronize();
 			
