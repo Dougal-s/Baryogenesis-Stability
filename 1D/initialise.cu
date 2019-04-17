@@ -145,106 +145,106 @@ Complex<double> PhiDot[F][X];
 
 int main() {
 	cout << "\n////////////////////////////////////////////////////////////////////////////////\n\n";
-		
-		SelectDevice();
-		
-		Complex<double> (*d_Phi)[X];
-		Complex<double> (*d_PhiDot)[X];
-		
-		cudaMalloc(&d_Phi, (F*X)*sizeof(Complex<double>));
-		cudaMalloc(&d_PhiDot, (F*X)*sizeof(Complex<double>));
-		
-		float2 (*d_PhiC);
-		float2 (*d_PhiDotC);
-		cudaMalloc(&d_PhiC, (X)*sizeof(float2));
-		cudaMalloc(&d_PhiDotC, (X)*sizeof(float2));
-		
-		dim3 block = {1024};
-		dim3 grid = {(X+block.x-1)/block.x};
-		
-		cudaError_t __err;
-		
-		cout << "\n=============================================\n";
-		cout << "||                                         ||";
 
-		cout << "\n|| Initializing                            ||" << endl;
-		cout << "||                                         ||"; 
-		
-		__err = cudaGetLastError();
-		
-		if (__err != cudaSuccess) {
-			cout << "||                                         ||\n";
-			cout << "|| Failed to create variables              ||\n";
-			cout << "|| "  << setw(40) << left << cudaGetErrorString(__err) << "||\n";
-			cout << "=============================================\n";
-			return -1;
-		}
-		
-		//////////////////
-		//Initialization//
-		//////////////////
-		
-		// FFT initialitation
-		
-		cout << "\n|| Running inverse fast fourier transform  ||\n";
+	SelectDevice();
+
+	Complex<double> (*d_Phi)[X];
+	Complex<double> (*d_PhiDot)[X];
+
+	cudaMalloc(&d_Phi, (F*X)*sizeof(Complex<double>));
+	cudaMalloc(&d_PhiDot, (F*X)*sizeof(Complex<double>));
+
+	float2 (*d_PhiC);
+	float2 (*d_PhiDotC);
+	cudaMalloc(&d_PhiC, (X)*sizeof(float2));
+	cudaMalloc(&d_PhiDotC, (X)*sizeof(float2));
+
+	dim3 block = {1024};
+	dim3 grid = {(X+block.x-1)/block.x};
+
+	cudaError_t __err;
+
+	cout << "\n=============================================\n";
+	cout << "||                                         ||\n";
+
+	cout << "|| Initializing                            ||\n";
+	cout << "||                                         ||\n"; 
+
+	__err = cudaGetLastError();
+
+	if (__err != cudaSuccess) {
 		cout << "||                                         ||\n";
-		cufftHandle plan;
-		cufftPlan1d( &plan, X, CUFFT_C2C, 1);
-		
-		for (short int f=0; f<F; f++) {
-		
-			// Pre FFT initialization
-			
-			PreFFTInitPhi<<<grid, block>>>(d_PhiC, f);
-			PreFFTInitPhiDot<<<grid, block>>>(d_PhiDotC, f);
-			cudaDeviceSynchronize();
-			
-			cufftExecC2C( plan, (cufftComplex *) d_PhiC, (cufftComplex *) d_PhiC, CUFFT_INVERSE );
-			cufftExecC2C( plan, (cufftComplex *) d_PhiDotC, (cufftComplex *) d_PhiDotC, CUFFT_INVERSE );
-			
-			cpy<<<grid, block>>>(d_PhiC, d_PhiDotC, d_Phi, d_PhiDot, f);
-			cudaDeviceSynchronize();
-		}
-		
-		cufftDestroy(plan);
-		cudaFree(d_PhiC);
-		cudaFree(d_PhiDotC);
-		
-		// Post FFT initialization
-		
-		PostFFTInit<<<grid, block>>>( d_Phi, d_PhiDot);
-		cudaDeviceSynchronize();
-		
-		cudaMemcpy(Phi, d_Phi, (F*X)*sizeof(Complex<double>), cudaMemcpyDeviceToHost);
-		cudaMemcpy(PhiDot, d_PhiDot, (F*X)*sizeof(Complex<double>), cudaMemcpyDeviceToHost);
-		
-		// Printing data
-		
-		ofstream PhiFile("initialPhi.bin", ios::binary);
-		ofstream PhiDotFile("initialPhiDot.bin", ios::binary);
-		
-		print(Phi, PhiDot, 0, PhiFile, PhiDotFile);
-		
-		PhiFile.close();
-		PhiDotFile.close();
-		
-		cudaFree(d_Phi);
-		cudaFree(d_PhiDot);
-		
-		__err = cudaGetLastError();
-		
-		if (__err != cudaSuccess) {
-			cout << "||                                         ||\n";
-			cout << "|| Failed to create variables              ||\n";
-			cout << "|| "  << setw(40) << left << cudaGetErrorString(__err) << "||\n";
-			cout << "=============================================\n";
-			return -1;
-		}
-		
-		cout << "|| Completed Initializing                  ||\n";
+		cout << "|| Failed to create variables              ||\n";
+		cout << "|| "  << setw(40) << left << cudaGetErrorString(__err) << "||\n";
 		cout << "=============================================\n";
-		
-		cout << "\n\n////////////////////////////////////////////////////////////////////////////////\n" << endl;
-		
-		return 0;
+		return -1;
+	}
+
+	//////////////////
+	//Initialization//
+	//////////////////
+
+	// FFT initialitation
+
+	cout << "|| Running inverse fast fourier transform  ||\n";
+	cout << "||                                         ||\n";
+	cufftHandle plan;
+	cufftPlan1d( &plan, X, CUFFT_C2C, 1);
+
+	for (short int f=0; f<F; f++) {
+
+		// Pre FFT initialization
+
+		PreFFTInitPhi<<<grid, block>>>(d_PhiC, f);
+		PreFFTInitPhiDot<<<grid, block>>>(d_PhiDotC, f);
+		cudaDeviceSynchronize();
+
+		cufftExecC2C( plan, (cufftComplex *) d_PhiC, (cufftComplex *) d_PhiC, CUFFT_INVERSE );
+		cufftExecC2C( plan, (cufftComplex *) d_PhiDotC, (cufftComplex *) d_PhiDotC, CUFFT_INVERSE );
+
+		cpy<<<grid, block>>>(d_PhiC, d_PhiDotC, d_Phi, d_PhiDot, f);
+		cudaDeviceSynchronize();
+	}
+
+	cufftDestroy(plan);
+	cudaFree(d_PhiC);
+	cudaFree(d_PhiDotC);
+
+	// Post FFT initialization
+
+	PostFFTInit<<<grid, block>>>( d_Phi, d_PhiDot);
+	cudaDeviceSynchronize();
+
+	cudaMemcpy(Phi, d_Phi, (F*X)*sizeof(Complex<double>), cudaMemcpyDeviceToHost);
+	cudaMemcpy(PhiDot, d_PhiDot, (F*X)*sizeof(Complex<double>), cudaMemcpyDeviceToHost);
+
+	// Printing data
+
+	ofstream PhiFile("initialPhi.bin", ios::binary);
+	ofstream PhiDotFile("initialPhiDot.bin", ios::binary);
+
+	print(Phi, PhiDot, 0, PhiFile, PhiDotFile);
+
+	PhiFile.close();
+	PhiDotFile.close();
+
+	cudaFree(d_Phi);
+	cudaFree(d_PhiDot);
+
+	__err = cudaGetLastError();
+
+	if (__err != cudaSuccess) {
+		cout << "||                                         ||\n";
+		cout << "|| Failed to create variables              ||\n";
+		cout << "|| "  << setw(40) << left << cudaGetErrorString(__err) << "||\n";
+		cout << "=============================================\n";
+		return -1;
+	}
+
+	cout << "|| Completed Initializing                  ||\n";
+	cout << "=============================================\n";
+
+	cout << "\n\n////////////////////////////////////////////////////////////////////////////////\n\n";
+
+	return 0;
 }
